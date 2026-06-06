@@ -29,8 +29,15 @@ enum SyncService {
         case ffsubsync(String)
     }
 
+    /// Helper binaries (alass, ffmpeg, ffprobe) bundled inside the .app.
+    private static var bundledHelpersDir: String {
+        Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers").path
+    }
+
     private static func locate(_ names: [String]) -> String? {
-        let dirs = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/homebrew/opt/ffsubsync/libexec/bin"]
+        // Bundled helpers first (shipped .app), then Homebrew.
+        let dirs = [bundledHelpersDir, "/opt/homebrew/bin", "/usr/local/bin",
+                    "/opt/homebrew/opt/ffsubsync/libexec/bin"]
         let fm = FileManager.default
         for dir in dirs {
             for name in names {
@@ -69,11 +76,9 @@ enum SyncService {
         case .alass(let path):
             executable = path
             arguments = [videoPath, subtitlePath, outPath]
-            // Help alass find ffmpeg/ffprobe regardless of PATH.
-            if FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/ffmpeg") {
-                environment["ALASS_FFMPEG_PATH"] = "/opt/homebrew/bin/ffmpeg"
-                environment["ALASS_FFPROBE_PATH"] = "/opt/homebrew/bin/ffprobe"
-            }
+            // Point alass at ffmpeg/ffprobe (bundled first, else system).
+            if let ffmpeg = locate(["ffmpeg"]) { environment["ALASS_FFMPEG_PATH"] = ffmpeg }
+            if let ffprobe = locate(["ffprobe"]) { environment["ALASS_FFPROBE_PATH"] = ffprobe }
         case .ffsubsync(let path):
             executable = path
             arguments = [videoPath, "-i", subtitlePath, "-o", outPath, "--vad", "auditok"]

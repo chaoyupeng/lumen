@@ -24,7 +24,6 @@ final class PlayerCore: ObservableObject {
     @Published var volume: Double = 100
     @Published var subtitleTracks: [Track] = []
     @Published var audioTracks: [Track] = []
-    @Published var subDelay: Double = 0
 
     @Published var isDownloadingSubs = false
     @Published var isSyncing = false
@@ -79,7 +78,6 @@ final class PlayerCore: ObservableObject {
         mpv.observe("time-pos", MPV_FORMAT_DOUBLE)
         mpv.observe("duration", MPV_FORMAT_DOUBLE)
         mpv.observe("volume", MPV_FORMAT_DOUBLE)
-        mpv.observe("sub-delay", MPV_FORMAT_DOUBLE)
         mpv.observe("track-list", MPV_FORMAT_NONE)
         mpv.observe("sid", MPV_FORMAT_NONE)
         mpv.observe("aid", MPV_FORMAT_NONE)
@@ -164,11 +162,6 @@ final class PlayerCore: ObservableObject {
                 if p.format == MPV_FORMAT_DOUBLE, let d = p.data {
                     let v = d.assumingMemoryBound(to: Double.self).pointee
                     Task { @MainActor [weak self] in self?.volume = v }
-                }
-            case "sub-delay":
-                if p.format == MPV_FORMAT_DOUBLE, let d = p.data {
-                    let v = d.assumingMemoryBound(to: Double.self).pointee
-                    Task { @MainActor [weak self] in self?.subDelay = v }
                 }
             case "track-list", "sid", "aid":
                 Task { @MainActor [weak self] in self?.reloadTracks() }
@@ -287,22 +280,17 @@ final class PlayerCore: ObservableObject {
         reloadTracks()
     }
 
-    func setSubDelay(_ seconds: Double) {
-        mpv.setDouble("sub-delay", seconds)
-    }
-
-    /// Whether an audio-based sync tool (alass/ffsubsync) is installed.
+    /// Whether an audio-based sync tool (alass/ffsubsync) is available.
     var subtitleSyncAvailable: Bool { SyncService.isAvailable }
 
-    /// Re-sync the currently selected external subtitle against the audio, then
-    /// reload the corrected file. Only works on external (downloaded/added) subs.
+    /// Automatically sync the selected external subtitle against the audio and
+    /// reload the corrected file. Silently does nothing if no sync tool is
+    /// available or the active subtitle isn't an external file (e.g. embedded).
     func syncCurrentSubtitle() {
-        guard let video = currentPath else { subStatus = "No video open."; return }
-        guard let sub = subtitleTracks.first(where: { $0.selected }),
-              let subPath = sub.externalFilename else {
-            subStatus = "Select a downloaded or added subtitle to sync."
-            return
-        }
+        guard SyncService.isAvailable,
+              let video = currentPath,
+              let sub = subtitleTracks.first(where: { $0.selected }),
+              let subPath = sub.externalFilename else { return }
         let oldSid = sub.id
         isSyncing = true
         subStatus = "Syncing subtitle to audio…"
@@ -313,11 +301,10 @@ final class PlayerCore: ObservableObject {
                 mpv.command(["sub-remove", String(oldSid)])
                 mpv.command(["sub-add", synced, "select"])
                 reloadTracks()
-                subStatus = "Subtitle re-synced to audio."
-            } catch let error as SyncError {
-                subStatus = error.errorDescription
+                subStatus = "Subtitle synced to audio."
             } catch {
-                subStatus = error.localizedDescription
+                // Keep the downloaded subtitle as-is; don't nag.
+                subStatus = nil
             }
         }
     }
@@ -388,6 +375,8 @@ final class PlayerCore: ObservableObject {
                     reloadTracks()
                     let n = outcome.results.count
                     subStatus = "Added \(n) subtitle\(n == 1 ? "" : "s")."
+                    // Auto-sync the loaded subtitle to the audio (if a tool exists).
+                    syncCurrentSubtitle()
                 } else if outcome.listed > 0 {
                     // Found candidates but couldn't download them — almost always
                     // the OpenSubtitles.com login requirement.

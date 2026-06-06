@@ -88,10 +88,40 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# ---- Vendor sync helpers (ffmpeg/ffprobe/alass) into Contents/Helpers ----
+# Cheap: the heavy ffmpeg dylibs are already pulled in by libmpv, so these
+# binaries just need @rpath fixups. alass makes subtitle auto-sync built-in
+# (no 'brew install' for end users).
+echo "==> Vendoring sync helpers"
+HELPERS="$CONTENTS/Helpers"
+mkdir -p "$HELPERS"
+BREW="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
+HELPER_BINS=()
+copy_helper() {
+  local src="$1"
+  [ -x "$src" ] || return 1
+  local base; base="$(basename "$src")"
+  cp "$(realpath_py "$src")" "$HELPERS/$base"
+  chmod u+w "$HELPERS/$base"
+  HELPER_BINS+=("$HELPERS/$base")
+  echo "   + $base"
+}
+copy_helper "$BREW/bin/ffmpeg"  || echo "   (ffmpeg not found — auto-sync needs it)"
+copy_helper "$BREW/bin/ffprobe" || true
+# alass: bundle the latest available; try to install it on the build machine first.
+ALASS="$(command -v alass-cli || command -v alass || true)"
+if [ -z "$ALASS" ]; then brew install alass >/dev/null 2>&1 || true; ALASS="$(command -v alass-cli || command -v alass || true)"; fi
+if [ -n "$ALASS" ]; then copy_helper "$ALASS"; else echo "   (alass not available — subtitle auto-sync won't be bundled)"; fi
+
 echo "==> Vendoring dylib closure (recursive)"
 # BFS over a queue file; "already copied" == file present in Frameworks/.
+# Seed with the executable AND the helper binaries so their Homebrew deps are
+# pulled in and their install names get fixed too.
 QUEUE="$(mktemp)"
 echo "$MACOS/$APP_NAME" > "$QUEUE"
+if [ ${#HELPER_BINS[@]} -gt 0 ]; then
+  for h in "${HELPER_BINS[@]}"; do echo "$h" >> "$QUEUE"; done
+fi
 while [ -s "$QUEUE" ]; do
   bin="$(head -n 1 "$QUEUE")"
   sed -i '' '1d' "$QUEUE"
@@ -122,10 +152,21 @@ fix_binary() {
 fix_binary "$MACOS/$APP_NAME"
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS/$APP_NAME" 2>/dev/null || true
 for dylib in "$FRAMEWORKS"/*.dylib; do fix_binary "$dylib"; done
+# Helpers live in Contents/Helpers, so @executable_path/../Frameworks resolves
+# to Contents/Frameworks for them too.
+if [ ${#HELPER_BINS[@]} -gt 0 ]; then
+  for h in "${HELPER_BINS[@]}"; do
+    fix_binary "$h"
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$h" 2>/dev/null || true
+  done
+fi
 
 echo "==> Verifying no Homebrew paths remain"
 leak=0
-for bin in "$MACOS/$APP_NAME" "$FRAMEWORKS"/*.dylib; do
+CHECK=("$MACOS/$APP_NAME")
+for d in "$FRAMEWORKS"/*.dylib; do CHECK+=("$d"); done
+if [ ${#HELPER_BINS[@]} -gt 0 ]; then for h in "${HELPER_BINS[@]}"; do CHECK+=("$h"); done; fi
+for bin in "${CHECK[@]}"; do
   if deps_of "$bin" | grep -qE '^(/opt/homebrew|/usr/local/(Cellar|opt))/'; then
     echo "   LEAK: $(basename "$bin")"
     deps_of "$bin" | grep -E '^(/opt/homebrew|/usr/local/(Cellar|opt))/' | sed 's/^/      /'
@@ -138,6 +179,11 @@ echo "==> Code signing (ad-hoc, inner -> outer)"
 for dylib in "$FRAMEWORKS"/*.dylib; do
   codesign -f -s - "$dylib" >/dev/null 2>&1 || true
 done
+if [ ${#HELPER_BINS[@]} -gt 0 ]; then
+  for h in "${HELPER_BINS[@]}"; do
+    codesign -f -s - --options runtime "$h" >/dev/null 2>&1 || true
+  done
+fi
 codesign -f -s - --options runtime --entitlements "$ENTITLEMENTS" "$MACOS/$APP_NAME"
 codesign -f -s - --options runtime --entitlements "$ENTITLEMENTS" "$APP"
 codesign --verify --strict "$APP" && echo "   signature valid" || echo "   (codesign --verify reported issues)"

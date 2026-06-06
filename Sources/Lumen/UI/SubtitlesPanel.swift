@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Popover for audio + subtitle track selection, external subtitle files,
-/// key-free internet download, and subtitle delay.
+/// Popover for audio + subtitle track selection, external subtitle files, and
+/// key-free internet download (subtitles auto-sync to the audio after download).
 struct SubtitlesPanel: View {
     @EnvironmentObject var player: PlayerCore
 
@@ -17,13 +17,11 @@ struct SubtitlesPanel: View {
                 subtitleSection
                 Divider()
                 downloadSection
-                Divider()
-                delaySection
             }
             .padding(16)
         }
         .frame(width: 320)
-        .frame(maxHeight: 520)
+        .frame(maxHeight: 480)
     }
 
     // MARK: - Audio
@@ -63,22 +61,16 @@ struct SubtitlesPanel: View {
                 } label: {
                     Label("Add File…", systemImage: "doc.badge.plus")
                 }
-                Button {
-                    player.syncCurrentSubtitle()
-                } label: {
-                    Label("Auto-sync", systemImage: "wand.and.stars")
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                if player.isSyncing {
+                    HStack(spacing: 5) {
+                        ProgressView().controlSize(.small)
+                        Text("Syncing…").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-                .disabled(player.isSyncing)
-                if player.isSyncing { ProgressView().controlSize(.small) }
             }
-            .buttonStyle(.glass)
-            .controlSize(.small)
             .padding(.top, 2)
-
-            if !player.subtitleSyncAvailable {
-                Text("Auto-sync needs alass: brew install alass")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
         }
     }
 
@@ -112,23 +104,6 @@ struct SubtitlesPanel: View {
                 }
             }
         }
-    }
-
-    // MARK: - Delay
-
-    @ViewBuilder
-    private var delaySection: some View {
-        HStack {
-            Text("Subtitle delay").font(.caption)
-            Spacer()
-            Button { player.setSubDelay(player.subDelay - 0.1) } label: { Image(systemName: "minus") }
-            Text(String(format: "%+.1f s", player.subDelay))
-                .font(.caption).monospacedDigit().frame(width: 52)
-            Button { player.setSubDelay(player.subDelay + 0.1) } label: { Image(systemName: "plus") }
-            Button("0") { player.setSubDelay(0) }.font(.caption)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
     }
 
     // MARK: - Helpers
