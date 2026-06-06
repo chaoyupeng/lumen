@@ -44,8 +44,17 @@ struct ContentView: View {
             if open { controlsVisible = true; hideTask?.cancel() } else { showControls() }
         }
         // Lift subtitles above the controls whenever the bar is visible.
+        // Re-apply on size and file-load changes too, so the initial state
+        // (controls visible at launch) and window/fullscreen resizes are covered
+        // — onChange(controlsVisible) alone misses the unchanged initial value.
         .onChange(of: controlsVisible) { _, visible in
             player.setSubtitlesRaised(visible, windowHeight: contentHeight)
+        }
+        .onChange(of: contentHeight) { _, _ in
+            player.setSubtitlesRaised(controlsVisible, windowHeight: contentHeight)
+        }
+        .onChange(of: player.fileLoaded) { _, _ in
+            player.setSubtitlesRaised(controlsVisible, windowHeight: contentHeight)
         }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             guard let provider = providers.first else { return false }
