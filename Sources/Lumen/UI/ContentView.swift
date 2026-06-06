@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var player: PlayerCore
     @State private var controlsVisible = true
     @State private var hideTask: DispatchWorkItem?
+    @State private var subtitlesOpen = false
 
     var body: some View {
         ZStack {
@@ -46,7 +47,7 @@ struct ContentView: View {
             if player.fileLoaded {
                 VStack {
                     Spacer()
-                    ControlsBar()
+                    ControlsBar(showSubtitles: $subtitlesOpen)
                         .environmentObject(player)
                 }
                 .opacity(controlsVisible ? 1 : 0)
@@ -56,11 +57,14 @@ struct ContentView: View {
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.25), value: controlsVisible)
         .onContinuousHover { phase in
-            switch phase {
-            case .active:
+            if case .active = phase { showControls() }
+        }
+        .onChange(of: subtitlesOpen) { _, open in
+            if open {
+                controlsVisible = true
+                hideTask?.cancel()
+            } else {
                 showControls()
-            case .ended:
-                break
             }
         }
     }
@@ -69,7 +73,8 @@ struct ContentView: View {
         controlsVisible = true
         hideTask?.cancel()
         let task = DispatchWorkItem {
-            if player.fileLoaded { controlsVisible = false }
+            // Never hide the bar while the subtitles popover is open.
+            if player.fileLoaded, !subtitlesOpen { controlsVisible = false }
         }
         hideTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)

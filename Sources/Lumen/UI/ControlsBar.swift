@@ -14,7 +14,7 @@ func timeString(_ seconds: Double) -> String {
 /// Bottom transport bar: play/pause, scrubber, time, subtitles, volume, fullscreen.
 struct ControlsBar: View {
     @EnvironmentObject var player: PlayerCore
-    @State private var showSubtitles = false
+    @Binding var showSubtitles: Bool
     @State private var scrubbing = false
     @State private var scrubFraction = 0.0
 

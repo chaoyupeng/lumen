@@ -1,118 +1,130 @@
 import SwiftUI
 
-/// Popover for subtitle track selection, loading external files, delay, and
-/// key-free internet download.
+/// Popover for audio + subtitle track selection, external subtitle files,
+/// key-free internet download, and subtitle delay.
 struct SubtitlesPanel: View {
     @EnvironmentObject var player: PlayerCore
-    @PersistedLanguages private var languages
-    @State private var showDownload = false
 
     private var anySubtitleSelected: Bool {
         player.subtitleTracks.contains { $0.selected }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Subtitles").font(.headline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                audioSection
+                Divider()
+                subtitleSection
+                Divider()
+                downloadSection
+                Divider()
+                delaySection
+            }
+            .padding(16)
+        }
+        .frame(width: 320)
+        .frame(maxHeight: 520)
+    }
 
-            VStack(alignment: .leading, spacing: 2) {
-                row(label: "Off", checked: !anySubtitleSelected) {
-                    player.selectSubtitle(id: nil)
-                }
-                ForEach(player.subtitleTracks) { track in
-                    row(label: track.displayName, checked: track.selected) {
-                        player.selectSubtitle(id: track.id)
-                    }
-                }
-                if player.subtitleTracks.isEmpty {
-                    Text("No subtitle tracks")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .padding(.vertical, 2)
+    // MARK: - Audio
+
+    @ViewBuilder
+    private var audioSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Audio").font(.headline)
+            if player.audioTracks.isEmpty {
+                Text("No audio tracks").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(player.audioTracks) { track in
+                row(label: track.displayName, checked: track.selected) {
+                    player.selectAudio(id: track.id)
                 }
             }
+        }
+    }
 
-            Divider()
+    // MARK: - Subtitles
 
+    @ViewBuilder
+    private var subtitleSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Subtitles").font(.headline)
+            row(label: "Off", checked: !anySubtitleSelected) {
+                player.selectSubtitle(id: nil)
+            }
+            ForEach(player.subtitleTracks) { track in
+                row(label: track.displayName, checked: track.selected) {
+                    player.selectSubtitle(id: track.id)
+                }
+            }
             Button {
                 player.openSubtitleFileDialog()
             } label: {
                 Label("Add Subtitle File…", systemImage: "doc.badge.plus")
             }
             .buttonStyle(.plain)
-
-            // Internet download (key-free).
-            DisclosureGroup(isExpanded: $showDownload) {
-                downloadSection
-            } label: {
-                Label("Download Subtitles…", systemImage: "arrow.down.circle")
-            }
-
-            Divider()
-
-            HStack {
-                Text("Delay").font(.caption)
-                Spacer()
-                Button { player.setSubDelay(player.subDelay - 0.1) } label: {
-                    Image(systemName: "minus")
-                }
-                Text(String(format: "%+.1f s", player.subDelay))
-                    .font(.caption).monospacedDigit()
-                    .frame(width: 52)
-                Button { player.setSubDelay(player.subDelay + 0.1) } label: {
-                    Image(systemName: "plus")
-                }
-                Button("0") { player.setSubDelay(0) }
-                    .font(.caption)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .padding(.top, 4)
         }
-        .padding(16)
-        .frame(width: 300)
     }
+
+    // MARK: - Download
 
     @ViewBuilder
     private var downloadSection: some View {
-        if !player.subtitleDownloadAvailable {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Requires subliminal").font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Download Subtitles").font(.headline)
+            if !player.subtitleDownloadAvailable {
+                Text("Requires subliminal:").font(.caption).foregroundStyle(.secondary)
                 Text("brew install subliminal")
-                    .font(.caption.monospaced())
-                    .textSelection(.enabled)
-            }
-            .padding(.vertical, 4)
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
+                    .font(.caption.monospaced()).textSelection(.enabled)
+            } else {
                 Text("Languages").font(.caption).foregroundStyle(.secondary)
-                LanguagePicker(selected: $languages)
-                HStack {
+                LanguagePicker(selected: player.subtitleLanguages) { code in
+                    player.toggleLanguage(code)
+                }
+                HStack(spacing: 8) {
                     Button {
-                        player.downloadSubtitles(languages: Array(languages))
+                        player.downloadSubtitles(languages: Array(player.subtitleLanguages))
                     } label: {
-                        if player.isDownloadingSubs {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text("Download")
-                        }
+                        Label("Download", systemImage: "arrow.down.circle")
                     }
-                    .disabled(player.isDownloadingSubs || languages.isEmpty)
+                    .disabled(player.isDownloadingSubs || player.subtitleLanguages.isEmpty)
+                    if player.isDownloadingSubs {
+                        ProgressView().controlSize(.small)
+                    }
                     Spacer()
                 }
                 if let status = player.subStatus {
                     Text(status).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .padding(.vertical, 4)
         }
     }
+
+    // MARK: - Delay
+
+    @ViewBuilder
+    private var delaySection: some View {
+        HStack {
+            Text("Subtitle delay").font(.caption)
+            Spacer()
+            Button { player.setSubDelay(player.subDelay - 0.1) } label: { Image(systemName: "minus") }
+            Text(String(format: "%+.1f s", player.subDelay))
+                .font(.caption).monospacedDigit().frame(width: 52)
+            Button { player.setSubDelay(player.subDelay + 0.1) } label: { Image(systemName: "plus") }
+            Button("0") { player.setSubDelay(0) }.font(.caption)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    // MARK: - Helpers
 
     @ViewBuilder
     private func row(label: String, checked: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Image(systemName: "checkmark")
-                    .opacity(checked ? 1 : 0)
-                    .frame(width: 14)
+                Image(systemName: "checkmark").opacity(checked ? 1 : 0).frame(width: 14)
                 Text(label).lineLimit(1)
                 Spacer()
             }

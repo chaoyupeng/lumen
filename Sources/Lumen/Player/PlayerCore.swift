@@ -28,6 +28,8 @@ final class PlayerCore: ObservableObject {
 
     @Published var isDownloadingSubs = false
     @Published var subStatus: String?
+    /// Persisted set of IETF language codes selected for download.
+    @Published var subtitleLanguages: Set<String> = ["en"]
 
     private(set) var currentPath: String?
 
@@ -39,6 +41,10 @@ final class PlayerCore: ObservableObject {
     weak var videoView: VideoNSView?
 
     init() {
+        if let saved = UserDefaults.standard.string(forKey: "subtitleLanguages") {
+            let set = Set(saved.split(separator: ",").map(String.init).filter { !$0.isEmpty })
+            if !set.isEmpty { subtitleLanguages = set }
+        }
         configure()
     }
 
@@ -75,6 +81,7 @@ final class PlayerCore: ObservableObject {
         mpv.observe("sub-delay", MPV_FORMAT_DOUBLE)
         mpv.observe("track-list", MPV_FORMAT_NONE)
         mpv.observe("sid", MPV_FORMAT_NONE)
+        mpv.observe("aid", MPV_FORMAT_NONE)
 
         mpv.onEvent = { [weak self] ev in self?.handle(event: ev) }
 
@@ -158,7 +165,7 @@ final class PlayerCore: ObservableObject {
                     let v = d.assumingMemoryBound(to: Double.self).pointee
                     Task { @MainActor [weak self] in self?.subDelay = v }
                 }
-            case "track-list", "sid":
+            case "track-list", "sid", "aid":
                 Task { @MainActor [weak self] in self?.reloadTracks() }
             default:
                 break
@@ -252,6 +259,21 @@ final class PlayerCore: ObservableObject {
         }
         subtitleTracks = subs
         audioTracks = audios
+    }
+
+    func selectAudio(id: Int64) {
+        mpv.setInt("aid", id)
+        reloadTracks()
+    }
+
+    func toggleLanguage(_ code: String) {
+        if subtitleLanguages.contains(code) {
+            subtitleLanguages.remove(code)
+        } else {
+            subtitleLanguages.insert(code)
+        }
+        UserDefaults.standard.set(subtitleLanguages.sorted().joined(separator: ","),
+                                  forKey: "subtitleLanguages")
     }
 
     func selectSubtitle(id: Int64?) {

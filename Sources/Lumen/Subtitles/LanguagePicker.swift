@@ -40,17 +40,18 @@ let subtitleLanguages: [SubtitleLanguage] = [
     .init(code: "th", name: "Thai"),
 ]
 
-/// Multi-select language list with the selection persisted in UserDefaults.
+/// Multi-select language list. Selection + persistence live in PlayerCore;
+/// this view just renders the current set and reports toggles.
 struct LanguagePicker: View {
-    @Binding var selected: Set<String>
+    let selected: Set<String>
+    let onToggle: (String) -> Void
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(subtitleLanguages) { lang in
                     Button {
-                        if selected.contains(lang.code) { selected.remove(lang.code) }
-                        else { selected.insert(lang.code) }
+                        onToggle(lang.code)
                     } label: {
                         HStack {
                             Image(systemName: selected.contains(lang.code) ? "checkmark.square.fill" : "square")
@@ -65,21 +66,6 @@ struct LanguagePicker: View {
                 }
             }
         }
-        .frame(height: 160)
-    }
-}
-
-/// Persists a Set<String> of language codes as a comma-separated UserDefaults value.
-@propertyWrapper
-struct PersistedLanguages: DynamicProperty {
-    @AppStorage("subtitleLanguages") private var raw: String = "en"
-
-    var wrappedValue: Set<String> {
-        get { Set(raw.split(separator: ",").map(String.init).filter { !$0.isEmpty }) }
-        nonmutating set { raw = newValue.sorted().joined(separator: ",") }
-    }
-
-    var projectedValue: Binding<Set<String>> {
-        Binding(get: { wrappedValue }, set: { wrappedValue = $0 })
+        .frame(height: 150)
     }
 }
