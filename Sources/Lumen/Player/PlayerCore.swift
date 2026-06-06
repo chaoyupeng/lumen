@@ -415,6 +415,7 @@ final class PlayerCore: ObservableObject {
 
         if let colorSpaceName {
             // HDR on: tell the layer it's PQ EDR, and have mpv output PQ to match.
+            let wasActive = isHDRActive
             layer.enableHDR(colorSpaceName: colorSpaceName)
             mpv.setFlag("icc-profile-auto", false)
             mpv.setString("target-prim", primaries)
@@ -424,7 +425,9 @@ final class PlayerCore: ObservableObject {
             isHDRActive = true
             let label = (gamma == "hlg") ? "HLG" : "HDR10"
             colorInfo = "\(label) · PQ · \(primaries.uppercased())"
-            NSLog("Lumen: EDR ON (gamma=\(gamma), primaries=\(primaries), screenEDR=\(screenEDR))")
+            if !wasActive {
+                NSLog("Lumen: EDR ON (gamma=\(gamma), primaries=\(primaries), screenEDR=\(screenEDR))")
+            }
         } else {
             // SDR: restore defaults so mpv tone-maps/handles output normally.
             layer.disableHDR()

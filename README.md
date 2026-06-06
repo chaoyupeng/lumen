@@ -1,41 +1,41 @@
 # Lumen
 
-A native macOS video player that **embeds [libmpv](https://mpv.io) in-process** to match raw mpv's HDR / 4K / 10-bit / audio quality, and adds the four things mpv itself lacks:
+A native macOS video player that **embeds [libmpv](https://mpv.io) in-process** to match raw mpv's HDR / 4K / 10-bit / audio quality — with a modern **Liquid Glass** interface, **automatic subtitle download**, and **audio-based auto-sync**.
 
-1. **Key-free internet subtitle download** with a multi-language picker (no API key required).
-2. **Reference-free, audio-based subtitle auto-sync** — fixes delay and framerate drift against the video's own audio.
-3. **In-app "Check for Updates"** (via GitHub Releases).
-4. **Clean, self-contained distribution** — a double-clickable `.app` with libmpv bundled inside.
+Built from scratch in Swift + SwiftUI/AppKit. One `mpv_handle`, rendered into a `CAOpenGLLayer` with app-managed EDR for correct HDR. No Electron, no subprocess mpv.
 
-Built from scratch in Swift + SwiftUI/AppKit. No Electron, no subprocess mpv — one `mpv_handle`, rendered into a `CAOpenGLLayer` (IINA-style render API), with app-managed EDR for correct HDR.
+## Features
 
-> **Status:** early development. Milestone 1 (embedded libmpv playback + HDR) in progress.
+- 🎬 **mpv-quality playback** — real HDR10/HLG EDR output (orange **HDR** badge when active), 10-bit, 4K, hardware-decoded. mpv's defaults preserved, so it looks like mpv.
+- 💬 **Automatic subtitles** — on open, uses the video's embedded subtitles, or downloads English subtitles from the internet (OpenSubtitles.com) and loads them.
+- 🪄 **Auto-sync** — downloaded subtitles are automatically synced to the audio (bundled `alass` + `ffmpeg` — nothing to install).
+- 🔊 **Audio + subtitle track switching**, drag-and-drop, keyboard control (Space, ←/→ seek, ↑/↓ volume, `f` fullscreen, and all of mpv's bindings).
+- ✨ **Liquid Glass UI** — floating glass controls, immersive window, auto-hiding bar.
+- ⬆️ **In-app update check** (via GitHub Releases).
 
-## Why
+## Install
 
-[IINA](https://iina.io) is the established macOS mpv frontend, but its HDR/4K output can diverge from raw mpv (version lag + defaults). Lumen's core principle: **preserve mpv's defaults** so output matches `mpv` itself, and bundle a pinned libmpv so HDR is reproducible and immune to `brew upgrade`.
+1. Download the latest **`Lumen-x.y.z.dmg`** from [Releases](https://github.com/chaoyupeng/lumen/releases).
+2. Open it and drag **Lumen** into **Applications**.
+3. **First launch:** because the app isn't notarized with an Apple Developer ID yet, macOS will block it once. Either:
+   - **Right-click Lumen → Open → Open**, or
+   - run `xattr -dr com.apple.quarantine /Applications/Lumen.app` in Terminal.
 
-## Build (Command Line Tools only — no Xcode required)
+   After that it opens normally.
 
-Requires the Xcode Command Line Tools, Homebrew, and `mpv` (for libmpv + headers):
+**Requirements:** Apple Silicon, **macOS 26+**. Everything (libmpv, ffmpeg, alass) is bundled — no Homebrew needed.
+
+> To download subtitles you'll sign in to a **free** [OpenSubtitles.com](https://www.opensubtitles.com/newuser) account under **Settings (⌘,)** — the old no-account API was shut down in Jan 2026.
+
+## Build from source
+
+Requires the Xcode Command Line Tools + Homebrew (no full Xcode needed):
 
 ```sh
-brew install mpv
-swift build      # or: make build
-swift run        # or: make run
+brew install mpv subliminal alass   # libmpv + subtitle tooling
+swift run                           # run (debug)
+make dmg                            # build the signed .app + DMG in dist/
 ```
-
-Optional runtime tools (detected at runtime; the app prompts to install if missing):
-
-```sh
-brew install subliminal   # key-free subtitle download
-brew install alass        # audio-based subtitle auto-sync
-```
-
-## Platform
-
-- Apple Silicon, macOS. The shipped minimum-OS floor is dictated by the bundled
-  libmpv's build target (currently **macOS 26.0** for the Homebrew build).
 
 ## License
 
@@ -43,4 +43,4 @@ GPLv3 — Lumen links and bundles libmpv (which is GPL). See [LICENSE](LICENSE).
 
 ---
 
-🤖 Architecture designed with [Claude Code](https://claude.com/claude-code).
+🤖 Built with [Claude Code](https://claude.com/claude-code).
