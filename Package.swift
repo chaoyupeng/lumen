@@ -27,6 +27,8 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-Xcc", "-I/opt/homebrew/include", "-I", "/opt/homebrew/include"]),
                 .define("GL_SILENCE_DEPRECATION"),
+                // Interop + threading code; tighten to Swift 6 concurrency later.
+                .swiftLanguageMode(.v5),
             ],
             linkerSettings: [
                 .unsafeFlags([
