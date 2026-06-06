@@ -29,7 +29,6 @@ struct ControlsBar: View {
                 Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
                     .frame(width: 18)
             }
-            .keyboardShortcut(.space, modifiers: [])
 
             Text(timeString(player.timePos))
                 .font(.caption).monospacedDigit()

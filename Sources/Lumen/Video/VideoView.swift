@@ -9,6 +9,8 @@ final class VideoNSView: NSView {
 
     /// Forwards a translated mpv key name (e.g. "SPACE", "RIGHT", "Shift+UP").
     var keyHandler: ((String) -> Void)?
+    /// Adjusts volume by a delta (for the ↑/↓ keys we handle ourselves).
+    var volumeHandler: ((Double) -> Void)?
 
     init(renderer: MPVRenderer, mpv: OpaquePointer?) {
         viewLayer = ViewLayer(renderer: renderer)
@@ -60,11 +62,21 @@ final class VideoNSView: NSView {
     // MARK: - Keyboard
 
     override func keyDown(with event: NSEvent) {
-        // Handle our own fullscreen; everything else goes to mpv's bindings.
-        if event.keyCode == 3 /* f */, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+        let noModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty
+        switch event.keyCode {
+        case 3 where noModifiers:           // f -> fullscreen (ours, not mpv's)
             window?.toggleFullScreen(nil)
             return
+        case 126:                           // ↑ -> volume up
+            volumeHandler?(5)
+            return
+        case 125:                           // ↓ -> volume down
+            volumeHandler?(-5)
+            return
+        default:
+            break
         }
+        // Everything else (incl. ←/→ seek) goes to mpv's default bindings.
         if let key = VideoNSView.mpvKey(from: event) {
             keyHandler?(key)
         } else {
@@ -107,6 +119,7 @@ struct VideoView: NSViewRepresentable {
     func makeNSView(context: Context) -> VideoNSView {
         let view = VideoNSView(renderer: player.renderer, mpv: player.mpv.handle)
         view.keyHandler = { [weak player] key in player?.sendKey(key) }
+        view.volumeHandler = { [weak player] delta in player?.adjustVolume(by: delta) }
         player.attachVideoView(view)
         return view
     }

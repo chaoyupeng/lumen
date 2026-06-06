@@ -224,6 +224,10 @@ final class PlayerCore: ObservableObject {
         mpv.setDouble("volume", value)
     }
 
+    func adjustVolume(by delta: Double) {
+        mpv.command(["add", "volume", String(delta)])
+    }
+
     // MARK: - Subtitles
 
     /// Re-read the track list and selection state from mpv.
