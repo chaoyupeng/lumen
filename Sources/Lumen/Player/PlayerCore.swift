@@ -115,6 +115,9 @@ final class PlayerCore: ObservableObject {
             let m = ev.pointee.data.assumingMemoryBound(to: mpv_event_log_message.self).pointee
             let prefix = String(cString: m.prefix)
             let text = String(cString: m.text)
+            // Known-benign one-time GL state check on the CAOpenGLLayer path;
+            // playback/HDR are unaffected. Don't spam it to the console.
+            if text.contains("INVALID_FRAMEBUFFER_OPERATION") { return }
             FileHandle.standardError.write(Data("[mpv/\(prefix)] \(text)".utf8))
 
         case MPV_EVENT_FILE_LOADED:

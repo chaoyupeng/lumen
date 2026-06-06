@@ -32,7 +32,13 @@ let package = Package(
                 .copy("Resources/AppIcon.icns"),
             ],
             swiftSettings: [
-                .unsafeFlags(["-Xcc", "-I/opt/homebrew/include", "-I", "/opt/homebrew/include"]),
+                .unsafeFlags([
+                    "-Xcc", "-I/opt/homebrew/include",
+                    "-I", "/opt/homebrew/include",
+                    // Silence OpenGL/CGL C-API deprecation warnings (OpenGL is the
+                    // only HDR-capable embeddable render path libmpv exposes).
+                    "-Xcc", "-DGL_SILENCE_DEPRECATION",
+                ]),
                 .define("GL_SILENCE_DEPRECATION"),
                 // Interop + threading code; tighten to Swift 6 concurrency later.
                 .swiftLanguageMode(.v5),

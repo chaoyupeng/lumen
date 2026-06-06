@@ -19,8 +19,11 @@ final class VideoNSView: NSView {
         viewLayer.hostView = self
         wantsLayer = true
         layerContentsRedrawPolicy = .duringViewResize
-        wantsBestResolutionOpenGLSurface = true
-        wantsExtendedDynamicRangeOpenGLSurface = true
+        // Opt the OpenGL surface into best-resolution + extended dynamic range.
+        // Set via KVC: the typed properties are deprecated (OpenGL), and KVC
+        // avoids the deprecation warnings for these intentional, unavoidable uses.
+        setValue(true, forKey: "wantsBestResolutionOpenGLSurface")
+        setValue(true, forKey: "wantsExtendedDynamicRangeOpenGLSurface")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
