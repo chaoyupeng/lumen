@@ -19,6 +19,25 @@ struct ContentView: View {
                     Button("Open…") { player.openFileDialog() }
                 }
             }
+
+            // HDR status badge (top-right). Only shown when EDR is engaged.
+            if player.fileLoaded, !player.colorInfo.isEmpty {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text(player.isHDRActive ? "HDR" : player.colorInfo)
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(player.isHDRActive ? Color.orange.opacity(0.9) : Color.gray.opacity(0.6),
+                                        in: Capsule())
+                            .foregroundStyle(.white)
+                            .help(player.colorInfo)
+                            .padding(12)
+                    }
+                    Spacer()
+                }
+            }
         }
         .frame(minWidth: 640, minHeight: 360)
         .ignoresSafeArea()

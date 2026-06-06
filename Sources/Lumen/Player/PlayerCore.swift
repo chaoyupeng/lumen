@@ -14,6 +14,10 @@ final class PlayerCore: ObservableObject {
     @Published var isPaused = false
     @Published var fileLoaded = false
     @Published var currentTitle = ""
+    /// True while EDR/HDR output is active (HDR content on an EDR display).
+    @Published var isHDRActive = false
+    /// Short human-readable color description, e.g. "HDR10 · PQ · BT.2020".
+    @Published var colorInfo = ""
 
     /// True once the render context exists. Until then, opens are queued so
     /// mpv's vo=libmpv always has a render context when a file loads.
@@ -193,6 +197,9 @@ final class PlayerCore: ObservableObject {
             mpv.setString("target-trc", "pq") // HLG is converted to PQ by mpv
             mpv.setString("target-peak", "auto")
             mpv.setFlag("screenshot-tag-colorspace", true)
+            isHDRActive = true
+            let label = (gamma == "hlg") ? "HLG" : "HDR10"
+            colorInfo = "\(label) · PQ · \(primaries.uppercased())"
             NSLog("Lumen: EDR ON (gamma=\(gamma), primaries=\(primaries), screenEDR=\(screenEDR))")
         } else {
             // SDR: restore defaults so mpv tone-maps/handles output normally.
@@ -201,8 +208,12 @@ final class PlayerCore: ObservableObject {
             mpv.setString("target-prim", "auto")
             mpv.setString("target-peak", "auto")
             mpv.setFlag("screenshot-tag-colorspace", false)
+            isHDRActive = false
             if isHDRContent {
+                colorInfo = "HDR content · EDR unavailable (display SDR)"
                 NSLog("Lumen: HDR content but EDR not enabled (screenEDR=\(screenEDR))")
+            } else {
+                colorInfo = primaries.isEmpty ? "" : "SDR · \(primaries.uppercased())"
             }
         }
     }
