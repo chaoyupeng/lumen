@@ -7,7 +7,6 @@ struct ContentView: View {
     @State private var hideTask: DispatchWorkItem?
     @State private var subtitlesOpen = false
     @State private var dropTargeted = false
-    @State private var contentHeight: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -36,25 +35,11 @@ struct ContentView: View {
         .frame(minWidth: 720, minHeight: 405)
         .animation(.easeInOut(duration: 0.25), value: controlsVisible)
         .animation(.easeInOut(duration: 0.15), value: dropTargeted)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
         .onContinuousHover { phase in
             if case .active = phase { showControls() }
         }
         .onChange(of: subtitlesOpen) { _, open in
             if open { controlsVisible = true; hideTask?.cancel() } else { showControls() }
-        }
-        // Lift subtitles above the controls whenever the bar is visible.
-        // Re-apply on size and file-load changes too, so the initial state
-        // (controls visible at launch) and window/fullscreen resizes are covered
-        // — onChange(controlsVisible) alone misses the unchanged initial value.
-        .onChange(of: controlsVisible) { _, visible in
-            player.setSubtitlesRaised(visible, windowHeight: contentHeight)
-        }
-        .onChange(of: contentHeight) { _, _ in
-            player.setSubtitlesRaised(controlsVisible, windowHeight: contentHeight)
-        }
-        .onChange(of: player.fileLoaded) { _, _ in
-            player.setSubtitlesRaised(controlsVisible, windowHeight: contentHeight)
         }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             guard let provider = providers.first else { return false }
