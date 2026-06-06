@@ -19,8 +19,17 @@ import json
 import sys
 import traceback
 
-# Providers that work without any account / API key.
-KEYFREE_PROVIDERS = ["gestdown", "tvsubtitles", "podnapisi", "napiprojekt"]
+# Providers that work without any account / API key, ordered roughly by catalog
+# breadth. opensubtitles (anonymous XML-RPC) + bsplayer (hash-based) cover MOVIES
+# well; gestdown/tvsubtitles are TV-focused; podnapisi/napiprojekt are extras.
+KEYFREE_PROVIDERS = [
+    "opensubtitles",   # anonymous XML-RPC; large movie + TV catalog, hash matching
+    "bsplayer",        # anonymous, hash-based; good exact-release matches
+    "podnapisi",       # movies + TV
+    "gestdown",        # Addic7ed proxy (TV)
+    "tvsubtitles",     # TV
+    "napiprojekt",     # Polish, hash-based
+]
 
 
 def log(*args):
