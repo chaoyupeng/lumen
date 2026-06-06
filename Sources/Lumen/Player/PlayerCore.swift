@@ -266,6 +266,19 @@ final class PlayerCore: ObservableObject {
         reloadTracks()
     }
 
+    /// Lift subtitles above the on-screen controls while they're visible, so the
+    /// control bar never covers them; drop back to the bottom when hidden.
+    func setSubtitlesRaised(_ raised: Bool, windowHeight: CGFloat) {
+        guard raised, windowHeight > 0 else {
+            mpv.setInt("sub-pos", 100)
+            return
+        }
+        // ~90pt clears the bar (+ its bottom padding); cap the lift at 25%.
+        let clearance: CGFloat = 90
+        let pos = Int((1 - min(0.25, clearance / windowHeight)) * 100)
+        mpv.setInt("sub-pos", Int64(pos))
+    }
+
     func selectSubtitle(id: Int64?) {
         if let id {
             mpv.setInt("sid", id)
