@@ -15,6 +15,7 @@ struct ControlsBar: View {
     @Binding var showSubtitles: Bool
     @State private var sliderValue = 0.0
     @State private var scrubbing = false
+    @State private var lastPreviewSeek = Date.distantPast
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -57,11 +58,20 @@ struct ControlsBar: View {
         // time-pos updates (which caused the jumping).
         Slider(value: $sliderValue, in: 0...1) { editing in
             scrubbing = editing
-            if !editing { player.seek(toFraction: sliderValue) }
+            if !editing { player.seek(toFraction: sliderValue, exact: true) }
         }
         .controlSize(.small)
         .tint(.white)
         .frame(minWidth: 160)
+        .onChange(of: sliderValue) { _, value in
+            // Live frame preview while dragging (fast keyframe seeks, throttled).
+            guard scrubbing else { return }
+            let now = Date()
+            if now.timeIntervalSince(lastPreviewSeek) > 0.05 {
+                lastPreviewSeek = now
+                player.seek(toFraction: value, exact: false)
+            }
+        }
         .onChange(of: player.timePos) { _, _ in syncSlider() }
         .onChange(of: player.duration) { _, _ in syncSlider() }
     }

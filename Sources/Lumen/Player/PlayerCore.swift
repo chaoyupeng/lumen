@@ -220,9 +220,13 @@ final class PlayerCore: ObservableObject {
 
     // MARK: - Playback controls
 
-    func seek(toFraction fraction: Double) {
+    /// Seek to a fraction of the duration. `exact: false` uses fast keyframe
+    /// seeking for live scrubbing preview; `exact: true` lands on the precise
+    /// frame (used on release).
+    func seek(toFraction fraction: Double, exact: Bool = true) {
         guard duration > 0 else { return }
-        mpv.command(["seek", String(fraction * duration), "absolute"])
+        let flags = exact ? "absolute+exact" : "absolute+keyframes"
+        mpv.command(["seek", String(fraction * duration), flags])
     }
 
     func setVolume(_ value: Double) {
