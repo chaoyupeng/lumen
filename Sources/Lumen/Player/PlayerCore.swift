@@ -27,6 +27,7 @@ final class PlayerCore: ObservableObject {
     @Published var subDelay: Double = 0
 
     @Published var isDownloadingSubs = false
+    @Published var isSyncing = false
     @Published var subStatus: String?
 
     /// Lumen downloads English subtitles only.
@@ -249,9 +250,11 @@ final class PlayerCore: ObservableObject {
             let title = mpv.getString("track-list/\(i)/title")
             let lang = mpv.getString("track-list/\(i)/lang")
             let external = mpv.getFlag("track-list/\(i)/external") ?? false
+            let externalFilename = mpv.getString("track-list/\(i)/external-filename")
             let selected = mpv.getFlag("track-list/\(i)/selected") ?? false
             let track = Track(id: id, type: type, title: title, lang: lang,
-                              external: external, selected: selected)
+                              external: external, externalFilename: externalFilename,
+                              selected: selected)
             switch type {
             case "sub": subs.append(track)
             case "audio": audios.append(track)
@@ -283,6 +286,37 @@ final class PlayerCore: ObservableObject {
 
     func setSubDelay(_ seconds: Double) {
         mpv.setDouble("sub-delay", seconds)
+    }
+
+    /// Whether an audio-based sync tool (alass/ffsubsync) is installed.
+    var subtitleSyncAvailable: Bool { SyncService.isAvailable }
+
+    /// Re-sync the currently selected external subtitle against the audio, then
+    /// reload the corrected file. Only works on external (downloaded/added) subs.
+    func syncCurrentSubtitle() {
+        guard let video = currentPath else { subStatus = "No video open."; return }
+        guard let sub = subtitleTracks.first(where: { $0.selected }),
+              let subPath = sub.externalFilename else {
+            subStatus = "Select a downloaded or added subtitle to sync."
+            return
+        }
+        let oldSid = sub.id
+        isSyncing = true
+        subStatus = "Syncing subtitle to audio…"
+        Task { @MainActor in
+            defer { isSyncing = false }
+            do {
+                let synced = try await SyncService.sync(videoPath: video, subtitlePath: subPath)
+                mpv.command(["sub-remove", String(oldSid)])
+                mpv.command(["sub-add", synced, "select"])
+                reloadTracks()
+                subStatus = "Subtitle re-synced to audio."
+            } catch let error as SyncError {
+                subStatus = error.errorDescription
+            } catch {
+                subStatus = error.localizedDescription
+            }
+        }
     }
 
     func openSubtitleFileDialog() {

@@ -8,6 +8,7 @@ struct Track: Identifiable, Hashable {
     let title: String?
     let lang: String?
     let external: Bool
+    let externalFilename: String?  // path on disk for external subs (sync target)
     var selected: Bool
 
     var displayName: String {

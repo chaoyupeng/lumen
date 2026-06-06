@@ -64,6 +64,21 @@ struct SubtitlesPanel: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
+
+            HStack(spacing: 8) {
+                Button {
+                    player.syncCurrentSubtitle()
+                } label: {
+                    Label("Auto-sync to audio", systemImage: "wand.and.stars")
+                }
+                .buttonStyle(.plain)
+                .disabled(player.isSyncing)
+                if player.isSyncing { ProgressView().controlSize(.small) }
+            }
+            if !player.subtitleSyncAvailable {
+                Text("Auto-sync needs alass: brew install alass")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
         }
     }
 
