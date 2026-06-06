@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var password = UserDefaults.standard.string(forKey: "osPassword") ?? ""
     @State private var apiKey = UserDefaults.standard.string(forKey: "osApiKey") ?? ""
     @AppStorage("autoSubtitles") private var autoSubtitles = true
+    @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
 
     @State private var verifying = false
     @State private var status: SubtitleService.VerifyResult?
@@ -44,8 +45,13 @@ struct SettingsView: View {
             } header: {
                 Text("Subtitles")
             } footer: {
-                Text("On open: use the video's embedded subtitles if present, otherwise download them in your chosen languages.")
+                Text("On open: use the video's embedded subtitles if present, otherwise download English subtitles automatically.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: $autoCheckUpdates)
+                Button("Check Now") { UpdateChecker.check(userInitiated: true) }
             }
         }
         .formStyle(.grouped)

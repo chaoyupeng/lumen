@@ -8,6 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Silent check on launch (unless disabled in Settings).
+        if UserDefaults.standard.object(forKey: "autoCheckUpdates") as? Bool ?? true {
+            UpdateChecker.check(userInitiated: false)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
