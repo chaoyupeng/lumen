@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var controlsVisible = true
     @State private var hideTask: DispatchWorkItem?
     @State private var subtitlesOpen = false
+    @State private var scrubbing = false
     @State private var dropTargeted = false
 
     var body: some View {
@@ -25,7 +26,7 @@ struct ContentView: View {
             if player.fileLoaded {
                 VStack {
                     Spacer()
-                    ControlsBar(showSubtitles: $subtitlesOpen).environmentObject(player)
+                    ControlsBar(showSubtitles: $subtitlesOpen, scrubbing: $scrubbing).environmentObject(player)
                 }
                 .opacity(controlsVisible ? 1 : 0)
             }
@@ -40,6 +41,10 @@ struct ContentView: View {
         }
         .onChange(of: subtitlesOpen) { _, open in
             if open { controlsVisible = true; hideTask?.cancel() } else { showControls() }
+        }
+        // Keep the bar visible during a drag, so you never scrub an invisible thumb.
+        .onChange(of: scrubbing) { _, dragging in
+            if dragging { controlsVisible = true; hideTask?.cancel() } else { showControls() }
         }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             guard let provider = providers.first else { return false }
@@ -116,7 +121,7 @@ struct ContentView: View {
         controlsVisible = true
         hideTask?.cancel()
         let task = DispatchWorkItem {
-            if player.fileLoaded, !subtitlesOpen { controlsVisible = false }
+            if player.fileLoaded, !subtitlesOpen, !scrubbing { controlsVisible = false }
         }
         hideTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)

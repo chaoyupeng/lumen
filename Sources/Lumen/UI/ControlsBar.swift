@@ -13,8 +13,8 @@ func timeString(_ seconds: Double) -> String {
 struct ControlsBar: View {
     @EnvironmentObject var player: PlayerCore
     @Binding var showSubtitles: Bool
+    @Binding var scrubbing: Bool
     @State private var sliderValue = 0.0
-    @State private var scrubbing = false
     @State private var lastPreviewSeek = Date.distantPast
 
     var body: some View {
