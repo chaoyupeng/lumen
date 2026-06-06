@@ -28,8 +28,9 @@ final class PlayerCore: ObservableObject {
 
     @Published var isDownloadingSubs = false
     @Published var subStatus: String?
-    /// Persisted set of IETF language codes selected for download.
-    @Published var subtitleLanguages: Set<String> = ["en"]
+
+    /// Lumen downloads English subtitles only.
+    let subtitleLanguages = ["en"]
 
     private(set) var currentPath: String?
 
@@ -41,10 +42,6 @@ final class PlayerCore: ObservableObject {
     weak var videoView: VideoNSView?
 
     init() {
-        if let saved = UserDefaults.standard.string(forKey: "subtitleLanguages") {
-            let set = Set(saved.split(separator: ",").map(String.init).filter { !$0.isEmpty })
-            if !set.isEmpty { subtitleLanguages = set }
-        }
         configure()
     }
 
@@ -270,16 +267,6 @@ final class PlayerCore: ObservableObject {
         reloadTracks()
     }
 
-    func toggleLanguage(_ code: String) {
-        if subtitleLanguages.contains(code) {
-            subtitleLanguages.remove(code)
-        } else {
-            subtitleLanguages.insert(code)
-        }
-        UserDefaults.standard.set(subtitleLanguages.sorted().joined(separator: ","),
-                                  forKey: "subtitleLanguages")
-    }
-
     func selectSubtitle(id: Int64?) {
         if let id {
             mpv.setInt("sid", id)
@@ -335,7 +322,7 @@ final class PlayerCore: ObservableObject {
             }
         } else if subtitleDownloadAvailable, !isDownloadingSubs {
             // No embedded subtitles — fetch them automatically.
-            downloadSubtitles(languages: Array(subtitleLanguages))
+            downloadSubtitles(languages: subtitleLanguages)
         }
     }
 

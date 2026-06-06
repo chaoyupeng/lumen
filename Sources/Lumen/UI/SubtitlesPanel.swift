@@ -78,17 +78,13 @@ struct SubtitlesPanel: View {
                 Text("brew install subliminal")
                     .font(.caption.monospaced()).textSelection(.enabled)
             } else {
-                Text("Languages").font(.caption).foregroundStyle(.secondary)
-                LanguagePicker(selected: player.subtitleLanguages) { code in
-                    player.toggleLanguage(code)
-                }
                 HStack(spacing: 8) {
                     Button {
-                        player.downloadSubtitles(languages: Array(player.subtitleLanguages))
+                        player.downloadSubtitles(languages: player.subtitleLanguages)
                     } label: {
-                        Label("Download", systemImage: "arrow.down.circle")
+                        Label("Download English Subtitles", systemImage: "arrow.down.circle")
                     }
-                    .disabled(player.isDownloadingSubs || player.subtitleLanguages.isEmpty)
+                    .disabled(player.isDownloadingSubs)
                     if player.isDownloadingSubs {
                         ProgressView().controlSize(.small)
                     }

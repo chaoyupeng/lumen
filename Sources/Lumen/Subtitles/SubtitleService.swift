@@ -84,6 +84,7 @@ enum SubtitleService {
                 process.executableURL = URL(fileURLWithPath: interpreter)
                 process.arguments = [script.path, "--verify"]
                 var env = ProcessInfo.processInfo.environment
+                env["PYTHONDONTWRITEBYTECODE"] = "1"
                 env["OS_USERNAME"] = username
                 env["OS_PASSWORD"] = password
                 if !apiKey.isEmpty { env["OS_APIKEY"] = apiKey }
@@ -117,6 +118,7 @@ enum SubtitleService {
     /// OpenSubtitles.com credentials entered in Settings, passed to subdl.py.
     private static func credentialEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
+        env["PYTHONDONTWRITEBYTECODE"] = "1" // never write __pycache__ into the bundle
         let defaults = UserDefaults.standard
         if let u = defaults.string(forKey: "osUsername"), !u.isEmpty { env["OS_USERNAME"] = u }
         if let p = defaults.string(forKey: "osPassword"), !p.isEmpty { env["OS_PASSWORD"] = p }
