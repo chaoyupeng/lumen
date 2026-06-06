@@ -13,13 +13,8 @@ func timeString(_ seconds: Double) -> String {
 struct ControlsBar: View {
     @EnvironmentObject var player: PlayerCore
     @Binding var showSubtitles: Bool
+    @State private var sliderValue = 0.0
     @State private var scrubbing = false
-    @State private var scrubFraction = 0.0
-
-    private var progress: Double {
-        if scrubbing { return scrubFraction }
-        return player.duration > 0 ? player.timePos / player.duration : 0
-    }
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -57,17 +52,23 @@ struct ControlsBar: View {
     }
 
     private var scrubber: some View {
-        Slider(
-            value: Binding(get: { progress },
-                           set: { scrubFraction = $0; scrubbing = true }),
-            in: 0...1,
-            onEditingChanged: { editing in
-                if !editing { player.seek(toFraction: scrubFraction); scrubbing = false }
-            }
-        )
+        // The slider owns `sliderValue` while dragging; otherwise it tracks
+        // playback. This decoupling prevents the thumb from fighting the live
+        // time-pos updates (which caused the jumping).
+        Slider(value: $sliderValue, in: 0...1) { editing in
+            scrubbing = editing
+            if !editing { player.seek(toFraction: sliderValue) }
+        }
         .controlSize(.small)
         .tint(.white)
         .frame(minWidth: 160)
+        .onChange(of: player.timePos) { _, _ in syncSlider() }
+        .onChange(of: player.duration) { _, _ in syncSlider() }
+    }
+
+    private func syncSlider() {
+        guard !scrubbing, player.duration > 0 else { return }
+        sliderValue = player.timePos / player.duration
     }
 
     private var volume: some View {

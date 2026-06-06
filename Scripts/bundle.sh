@@ -39,9 +39,14 @@ mkdir -p "$MACOS" "$RES" "$FRAMEWORKS"
 cp "$BUILD_DIR/$APP_NAME" "$MACOS/$APP_NAME"
 chmod u+w "$MACOS/$APP_NAME"
 
-# SwiftPM resource bundle (subdl.py).
+# SwiftPM resource bundle (subdl.py, AppIcon).
 if [ -d "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" ]; then
   cp -R "$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle" "$RES/"
+fi
+
+# App icon at the bundle's top-level Resources for CFBundleIconFile.
+if [ -f "$ROOT/Sources/Lumen/Resources/AppIcon.icns" ]; then
+  cp "$ROOT/Sources/Lumen/Resources/AppIcon.icns" "$RES/AppIcon.icns"
 fi
 
 # Pin the deployment floor to the bundled libmpv's actual build target.
@@ -64,6 +69,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>LSMinimumSystemVersion</key><string>$MINOS</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.video</string>
   <key>CFBundleDocumentTypes</key>

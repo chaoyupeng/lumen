@@ -28,6 +28,8 @@ let package = Package(
             dependencies: ["Cmpv"],
             resources: [
                 .copy("Resources/subdl.py"),
+                .copy("Resources/AppIcon.png"),
+                .copy("Resources/AppIcon.icns"),
             ],
             swiftSettings: [
                 .unsafeFlags(["-Xcc", "-I/opt/homebrew/include", "-I", "/opt/homebrew/include"]),
