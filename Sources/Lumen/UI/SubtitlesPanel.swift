@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Popover for subtitle track selection, loading external files, and delay.
-/// Download + auto-sync (M4/M5) will be added to this panel.
+/// Popover for subtitle track selection, loading external files, delay, and
+/// key-free internet download.
 struct SubtitlesPanel: View {
     @EnvironmentObject var player: PlayerCore
+    @PersistedLanguages private var languages
+    @State private var showDownload = false
 
     private var anySubtitleSelected: Bool {
         player.subtitleTracks.contains { $0.selected }
@@ -38,6 +40,13 @@ struct SubtitlesPanel: View {
             }
             .buttonStyle(.plain)
 
+            // Internet download (key-free).
+            DisclosureGroup(isExpanded: $showDownload) {
+                downloadSection
+            } label: {
+                Label("Download Subtitles…", systemImage: "arrow.down.circle")
+            }
+
             Divider()
 
             HStack {
@@ -60,6 +69,41 @@ struct SubtitlesPanel: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    @ViewBuilder
+    private var downloadSection: some View {
+        if !player.subtitleDownloadAvailable {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Requires subliminal").font(.caption).foregroundStyle(.secondary)
+                Text("brew install subliminal")
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+            .padding(.vertical, 4)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Languages").font(.caption).foregroundStyle(.secondary)
+                LanguagePicker(selected: $languages)
+                HStack {
+                    Button {
+                        player.downloadSubtitles(languages: Array(languages))
+                    } label: {
+                        if player.isDownloadingSubs {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Download")
+                        }
+                    }
+                    .disabled(player.isDownloadingSubs || languages.isEmpty)
+                    Spacer()
+                }
+                if let status = player.subStatus {
+                    Text(status).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+        }
     }
 
     @ViewBuilder

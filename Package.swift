@@ -24,6 +24,9 @@ let package = Package(
         .executableTarget(
             name: "Lumen",
             dependencies: ["Cmpv"],
+            resources: [
+                .copy("Resources/subdl.py"),
+            ],
             swiftSettings: [
                 .unsafeFlags(["-Xcc", "-I/opt/homebrew/include", "-I", "/opt/homebrew/include"]),
                 .define("GL_SILENCE_DEPRECATION"),

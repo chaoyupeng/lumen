@@ -26,6 +26,11 @@ final class PlayerCore: ObservableObject {
     @Published var audioTracks: [Track] = []
     @Published var subDelay: Double = 0
 
+    @Published var isDownloadingSubs = false
+    @Published var subStatus: String?
+
+    private(set) var currentPath: String?
+
     /// True once the render context exists. Until then, opens are queued so
     /// mpv's vo=libmpv always has a render context when a file loads.
     private var rendererReady = false
@@ -167,6 +172,8 @@ final class PlayerCore: ObservableObject {
     // MARK: - Actions
 
     func open(url: URL) {
+        currentPath = url.path
+        subStatus = nil
         if rendererReady {
             mpv.command(["loadfile", url.path])
         } else {
@@ -271,6 +278,44 @@ final class PlayerCore: ObservableObject {
         if !subTypes.isEmpty { panel.allowedContentTypes = subTypes }
         if panel.runModal() == .OK, let url = panel.url {
             addSubtitleFile(url)
+        }
+    }
+
+    /// Whether the subtitle download feature is usable (subliminal installed).
+    var subtitleDownloadAvailable: Bool { SubtitleService.isAvailable }
+
+    /// Download subtitles for the current file in the given IETF languages,
+    /// then load them into mpv (first selected, rest added but inactive).
+    func downloadSubtitles(languages: [String]) {
+        guard let path = currentPath else {
+            subStatus = "No video open."
+            return
+        }
+        guard !languages.isEmpty else {
+            subStatus = "Pick at least one language."
+            return
+        }
+        isDownloadingSubs = true
+        subStatus = "Searching…"
+        Task { @MainActor in
+            defer { isDownloadingSubs = false }
+            do {
+                let results = try await SubtitleService.download(videoPath: path, languages: languages)
+                if results.isEmpty {
+                    subStatus = "No subtitles found."
+                    return
+                }
+                for (index, result) in results.enumerated() {
+                    guard let p = result.path else { continue }
+                    mpv.command(["sub-add", p, index == 0 ? "select" : "auto"])
+                }
+                reloadTracks()
+                subStatus = "Added \(results.count) subtitle\(results.count == 1 ? "" : "s")."
+            } catch let error as SubtitleError {
+                subStatus = error.errorDescription
+            } catch {
+                subStatus = error.localizedDescription
+            }
         }
     }
 
