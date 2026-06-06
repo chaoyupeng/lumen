@@ -20,6 +20,8 @@ final class PlayerCore: ObservableObject {
     private var rendererReady = false
     private var pendingURL: URL?
 
+    weak var videoView: VideoNSView?
+
     init() {
         configure()
     }
@@ -88,6 +90,7 @@ final class PlayerCore: ObservableObject {
             Task { @MainActor [weak self] in
                 self?.fileLoaded = true
                 self?.refreshEdrMode()
+                self?.updateWindowSize()
             }
 
         case MPV_EVENT_PROPERTY_CHANGE:
@@ -109,6 +112,8 @@ final class PlayerCore: ObservableObject {
                 }
             case "video-params/gamma", "video-params/primaries":
                 Task { @MainActor [weak self] in self?.refreshEdrMode() }
+            case "dwidth", "dheight":
+                Task { @MainActor [weak self] in self?.updateWindowSize() }
             default:
                 break
             }
@@ -141,6 +146,23 @@ final class PlayerCore: ObservableObject {
 
     func togglePause() {
         mpv.setFlag("pause", !(mpv.getFlag("pause") ?? false))
+    }
+
+    func attachVideoView(_ view: VideoNSView) {
+        videoView = view
+    }
+
+    /// Forward a translated key to mpv; its default bindings handle the action.
+    func sendKey(_ key: String) {
+        mpv.command(["keypress", key])
+    }
+
+    /// Resize the window to the video's native display size. dwidth/dheight are
+    /// in pixels (already aspect-corrected by mpv).
+    func updateWindowSize() {
+        guard let dw = mpv.getInt("dwidth"), let dh = mpv.getInt("dheight"),
+              dw > 0, dh > 0 else { return }
+        videoView?.resizeWindow(toVideoWidth: Int(dw), height: Int(dh))
     }
 
     /// Enable or disable EDR/HDR output based on the current video's transfer

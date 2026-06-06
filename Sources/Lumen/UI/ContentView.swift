@@ -7,6 +7,7 @@ struct ContentView: View {
         ZStack {
             Color.black
             VideoView(player: player)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if !player.fileLoaded {
                 VStack(spacing: 12) {
