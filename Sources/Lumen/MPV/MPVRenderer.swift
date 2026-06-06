@@ -79,22 +79,29 @@ final class MPVRenderer {
     }
 
     /// Render one frame into the given framebuffer. Must be called with the
-    /// destination GL context current (ViewLayer guarantees this).
-    func render(fbo: GLint, width: Int, height: Int) {
+    /// destination GL context current (ViewLayer guarantees this). `depth` is
+    /// the color-buffer bit depth (16 for the float format, else 8) so mpv can
+    /// dither correctly for HDR.
+    func render(fbo: GLint, width: Int, height: Int, depth: GLint) {
         guard let ctx = renderContext else { return }
         var fboParam = mpv_opengl_fbo(fbo: Int32(fbo), w: Int32(width), h: Int32(height),
                                       internal_format: 0)
         var flipY: CInt = 1
+        var depthParam: CInt = CInt(depth)
         withUnsafeMutablePointer(to: &fboParam) { fp in
             withUnsafeMutablePointer(to: &flipY) { yp in
-                var params = [
-                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO,
-                                     data: UnsafeMutableRawPointer(fp)),
-                    mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y,
-                                     data: UnsafeMutableRawPointer(yp)),
-                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil),
-                ]
-                mpv_render_context_render(ctx, &params)
+                withUnsafeMutablePointer(to: &depthParam) { dp in
+                    var params = [
+                        mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO,
+                                         data: UnsafeMutableRawPointer(fp)),
+                        mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y,
+                                         data: UnsafeMutableRawPointer(yp)),
+                        mpv_render_param(type: MPV_RENDER_PARAM_DEPTH,
+                                         data: UnsafeMutableRawPointer(dp)),
+                        mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil),
+                    ]
+                    mpv_render_context_render(ctx, &params)
+                }
             }
         }
     }

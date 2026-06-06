@@ -10,8 +10,13 @@ final class VideoNSView: NSView {
         viewLayer = ViewLayer(renderer: renderer)
         viewLayer.mpvHandle = mpv
         super.init(frame: .zero)
+        viewLayer.hostView = self
         wantsLayer = true
         layerContentsRedrawPolicy = .duringViewResize
+        // Opt the OpenGL surface into best-resolution + extended dynamic range
+        // (mirrors IINA; deprecated-but-functional alongside CAOpenGLLayer).
+        wantsBestResolutionOpenGLSurface = true
+        wantsExtendedDynamicRangeOpenGLSurface = true
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
