@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Ad-hoc nested third-party dylibs (the bundled libmpv closure) cannot
+	     load under Library Validation; this is required for the self-contained
+	     .app to launch. NO App Sandbox: we shell out to subliminal/alass and
+	     read arbitrary user-chosen video files. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
