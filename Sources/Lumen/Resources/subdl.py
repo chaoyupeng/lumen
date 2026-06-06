@@ -44,6 +44,48 @@ def log(*args):
     print(*args, file=sys.stderr, flush=True)
 
 
+def verify():
+    """Verify OpenSubtitles.com credentials (from env). Prints {"ok", "error"}."""
+    try:
+        from subliminal import region
+        from subliminal.providers.opensubtitlescom import OpenSubtitlesComProvider
+    except Exception as e:
+        print(json.dumps({"ok": False, "error": f"subliminal import failed: {e}"}))
+        return 1
+    try:
+        region.configure("dogpile.cache.memory")
+    except Exception:
+        pass
+
+    username = os.environ.get("OS_USERNAME")
+    password = os.environ.get("OS_PASSWORD")
+    apikey = os.environ.get("OS_APIKEY") or None
+    if not username or not password:
+        print(json.dumps({"ok": False, "error": "Enter both a username and password."}))
+        return 0
+
+    try:
+        provider = OpenSubtitlesComProvider(username=username, password=password, apikey=apikey)
+        provider.initialize()
+        try:
+            provider.login(wait=True)
+        except TypeError:
+            provider.login()
+        ok = bool(getattr(provider, "token", None))
+        try:
+            provider.terminate()
+        except Exception:
+            pass
+        if ok:
+            print(json.dumps({"ok": True, "error": None}))
+        else:
+            print(json.dumps({"ok": False, "error": "Login failed (no token returned)."}))
+    except Exception as e:
+        log(traceback.format_exc())
+        print(json.dumps({"ok": False, "error": str(e)}))
+    return 0
+
+
 def emit(results, listed=0, error=None):
     print(json.dumps({"results": results, "listed": listed, "error": error}))
 
@@ -136,4 +178,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "--verify":
+        sys.exit(verify())
     sys.exit(main())

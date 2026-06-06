@@ -62,6 +62,9 @@ final class PlayerCore: ObservableObject {
         mpv.setOptionString("terminal", "no")
         mpv.setOptionString("keep-open", "yes")
         mpv.setOptionString("hwdec", "auto-safe")
+        // Uniform subtitle appearance: force mpv's own style over embedded ASS
+        // styling, so external (.srt) and embedded subs look identical.
+        mpv.setOptionString("sub-ass-override", "force")
 
         mpv.requestLogMessages("warn")
         mpv.setWakeupCallback()
@@ -122,6 +125,7 @@ final class PlayerCore: ObservableObject {
                 self?.refreshEdrMode()
                 self?.updateWindowSize()
                 self?.reloadTracks()
+                self?.autoConfigureSubtitles()
             }
 
         case MPV_EVENT_PROPERTY_CHANGE:
@@ -309,6 +313,31 @@ final class PlayerCore: ObservableObject {
 
     /// Whether the subtitle download feature is usable (subliminal installed).
     var subtitleDownloadAvailable: Bool { SubtitleService.isAvailable }
+
+    private var autoSubtitlesEnabled: Bool {
+        UserDefaults.standard.object(forKey: "autoSubtitles") as? Bool ?? true
+    }
+
+    /// On file load: prefer the video's embedded subtitles (selecting one in the
+    /// user's language if possible); if there are none, auto-download them.
+    func autoConfigureSubtitles() {
+        guard autoSubtitlesEnabled else { return }
+        if !subtitleTracks.isEmpty {
+            // Embedded subtitles exist — ensure one is active, preferring a
+            // track whose language matches the user's first choices.
+            if !subtitleTracks.contains(where: { $0.selected }) {
+                let preferred = subtitleLanguages.map { String($0.prefix(2)).lowercased() }
+                let match = subtitleTracks.first { track in
+                    guard let lang = track.lang?.lowercased() else { return false }
+                    return preferred.contains { lang.hasPrefix($0) }
+                }
+                selectSubtitle(id: (match ?? subtitleTracks[0]).id)
+            }
+        } else if subtitleDownloadAvailable, !isDownloadingSubs {
+            // No embedded subtitles — fetch them automatically.
+            downloadSubtitles(languages: Array(subtitleLanguages))
+        }
+    }
 
     /// Download subtitles for the current file in the given IETF languages,
     /// then load them into mpv (first selected, rest added but inactive).

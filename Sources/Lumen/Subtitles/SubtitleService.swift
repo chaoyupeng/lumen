@@ -63,6 +63,51 @@ enum SubtitleService {
 
     static var isAvailable: Bool { resolveInterpreter() != nil }
 
+    enum VerifyResult {
+        case success
+        case failure(String)
+    }
+
+    private struct VerifyOutput: Decodable {
+        let ok: Bool
+        let error: String?
+    }
+
+    /// Verify OpenSubtitles.com credentials by attempting a login.
+    static func verifyAccount(username: String, password: String, apiKey: String) async -> VerifyResult {
+        guard let interpreter = resolveInterpreter() else { return .failure(SubtitleError.subliminalNotInstalled.errorDescription!) }
+        guard let script = scriptURL() else { return .failure("Internal error: downloader missing.") }
+
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: interpreter)
+                process.arguments = [script.path, "--verify"]
+                var env = ProcessInfo.processInfo.environment
+                env["OS_USERNAME"] = username
+                env["OS_PASSWORD"] = password
+                if !apiKey.isEmpty { env["OS_APIKEY"] = apiKey }
+                process.environment = env
+
+                let outPipe = Pipe()
+                process.standardOutput = outPipe
+                process.standardError = Pipe()
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(returning: .failure(error.localizedDescription)); return
+                }
+                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                guard let out = try? JSONDecoder().decode(VerifyOutput.self, from: data) else {
+                    continuation.resume(returning: .failure("Could not verify (unexpected output)."))
+                    return
+                }
+                continuation.resume(returning: out.ok ? .success : .failure(out.error ?? "Login failed."))
+            }
+        }
+    }
+
     private static func scriptURL() -> URL? {
         Bundle.module.url(forResource: "subdl", withExtension: "py")
     }
