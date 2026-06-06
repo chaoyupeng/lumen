@@ -175,17 +175,23 @@ for bin in "${CHECK[@]}"; do
 done
 [ "$leak" -eq 0 ] && echo "   clean (only @rpath/system paths)" || echo "   WARNING: residual Homebrew paths above"
 
-echo "==> Code signing (ad-hoc, inner -> outer)"
+echo "==> Code signing (plain ad-hoc, inner -> outer)"
+# IMPORTANT: plain ad-hoc only. Hardened runtime (--options runtime) and
+# restricted entitlements (disable-library-validation) are INVALID with an
+# ad-hoc signature and make the kernel SIGKILL the app ("Code Signature
+# Invalid"). Without hardened runtime, library validation isn't enforced, so the
+# bundled third-party dylibs load fine. Add --options runtime + entitlements
+# ONLY when signing with a real Developer ID for notarization.
 for dylib in "$FRAMEWORKS"/*.dylib; do
   codesign -f -s - "$dylib" >/dev/null 2>&1 || true
 done
 if [ ${#HELPER_BINS[@]} -gt 0 ]; then
   for h in "${HELPER_BINS[@]}"; do
-    codesign -f -s - --options runtime "$h" >/dev/null 2>&1 || true
+    codesign -f -s - "$h" >/dev/null 2>&1 || true
   done
 fi
-codesign -f -s - --options runtime --entitlements "$ENTITLEMENTS" "$MACOS/$APP_NAME"
-codesign -f -s - --options runtime --entitlements "$ENTITLEMENTS" "$APP"
+codesign -f -s - "$MACOS/$APP_NAME"
+codesign -f -s - "$APP"
 codesign --verify --strict "$APP" && echo "   signature valid" || echo "   (codesign --verify reported issues)"
 
 echo "==> Done: $APP"
