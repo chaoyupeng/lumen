@@ -326,17 +326,23 @@ final class PlayerCore: ObservableObject {
         Task { @MainActor in
             defer { isDownloadingSubs = false }
             do {
-                let results = try await SubtitleService.download(videoPath: path, languages: languages)
-                if results.isEmpty {
+                let outcome = try await SubtitleService.download(videoPath: path, languages: languages)
+                if !outcome.results.isEmpty {
+                    for (index, result) in outcome.results.enumerated() {
+                        guard let p = result.path else { continue }
+                        mpv.command(["sub-add", p, index == 0 ? "select" : "auto"])
+                    }
+                    reloadTracks()
+                    let n = outcome.results.count
+                    subStatus = "Added \(n) subtitle\(n == 1 ? "" : "s")."
+                } else if outcome.listed > 0 {
+                    // Found candidates but couldn't download them — almost always
+                    // the OpenSubtitles.com login requirement.
+                    subStatus = "Found \(outcome.listed), but download needs a free "
+                        + "OpenSubtitles.com account. Add it in Settings (⌘,)."
+                } else {
                     subStatus = "No subtitles found."
-                    return
                 }
-                for (index, result) in results.enumerated() {
-                    guard let p = result.path else { continue }
-                    mpv.command(["sub-add", p, index == 0 ? "select" : "auto"])
-                }
-                reloadTracks()
-                subStatus = "Added \(results.count) subtitle\(results.count == 1 ? "" : "s")."
             } catch let error as SubtitleError {
                 subStatus = error.errorDescription
             } catch {

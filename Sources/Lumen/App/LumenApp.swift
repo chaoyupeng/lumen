@@ -17,5 +17,9 @@ struct LumenApp: App {
                     .keyboardShortcut("o", modifiers: .command)
             }
         }
+
+        Settings {
+            SettingsView()
+        }
     }
 }

@@ -8,7 +8,16 @@ struct SubtitleResult: Decodable {
 
 private struct SubdlOutput: Decodable {
     let results: [SubtitleResult]
+    let listed: Int?
     let error: String?
+}
+
+/// Outcome of a download attempt. `listed` is how many candidates were found
+/// across providers; if `results` is empty but `listed > 0`, the search worked
+/// but downloads were blocked (needs an OpenSubtitles.com account).
+struct DownloadOutcome {
+    let results: [SubtitleResult]
+    let listed: Int
 }
 
 enum SubtitleError: LocalizedError {
@@ -60,9 +69,19 @@ enum SubtitleService {
 
     /// Download subtitles for `videoPath` in the given IETF languages.
     /// Returns the saved subtitle results (possibly empty if none found).
+    /// OpenSubtitles.com credentials entered in Settings, passed to subdl.py.
+    private static func credentialEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let defaults = UserDefaults.standard
+        if let u = defaults.string(forKey: "osUsername"), !u.isEmpty { env["OS_USERNAME"] = u }
+        if let p = defaults.string(forKey: "osPassword"), !p.isEmpty { env["OS_PASSWORD"] = p }
+        if let k = defaults.string(forKey: "osApiKey"), !k.isEmpty { env["OS_APIKEY"] = k }
+        return env
+    }
+
     static func download(videoPath: String,
                          languages: [String],
-                         timeout: TimeInterval = 90) async throws -> [SubtitleResult] {
+                         timeout: TimeInterval = 90) async throws -> DownloadOutcome {
         guard let interpreter = resolveInterpreter() else { throw SubtitleError.subliminalNotInstalled }
         guard let script = scriptURL() else { throw SubtitleError.scriptMissing }
 
@@ -71,6 +90,7 @@ enum SubtitleService {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: interpreter)
                 process.arguments = [script.path, videoPath] + languages
+                process.environment = credentialEnvironment()
 
                 let outPipe = Pipe()
                 let errPipe = Pipe()
@@ -122,7 +142,8 @@ enum SubtitleService {
                     continuation.resume(throwing: SubtitleError.failed(error))
                     return
                 }
-                continuation.resume(returning: output.results)
+                continuation.resume(returning: DownloadOutcome(results: output.results,
+                                                               listed: output.listed ?? 0))
             }
         }
     }
