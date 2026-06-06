@@ -4,14 +4,12 @@ import SwiftUI
 func timeString(_ seconds: Double) -> String {
     guard seconds.isFinite, seconds >= 0 else { return "0:00" }
     let total = Int(seconds)
-    let h = total / 3600
-    let m = (total % 3600) / 60
-    let s = total % 60
-    if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
-    return String(format: "%d:%02d", m, s)
+    let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+    return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
 }
 
-/// Bottom transport bar: play/pause, scrubber, time, subtitles, volume, fullscreen.
+/// Floating Liquid-Glass transport bar: play/pause, scrubber, time, subtitles,
+/// volume, fullscreen.
 struct ControlsBar: View {
     @EnvironmentObject var player: PlayerCore
     @Binding var showSubtitles: Bool
@@ -24,56 +22,76 @@ struct ControlsBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            Button(action: player.togglePause) {
-                Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
-                    .frame(width: 18)
-            }
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 14) {
+                iconButton(player.isPaused ? "play.fill" : "pause.fill",
+                           size: 17, action: player.togglePause)
 
-            Text(timeString(player.timePos))
-                .font(.caption).monospacedDigit()
-                .foregroundStyle(.white)
+                Text(timeString(player.timePos))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.85))
 
-            Slider(
-                value: Binding(get: { progress }, set: { scrubFraction = $0; scrubbing = true }),
-                in: 0...1,
-                onEditingChanged: { editing in
-                    if !editing {
-                        player.seek(toFraction: scrubFraction)
-                        scrubbing = false
+                scrubber
+
+                Text(timeString(player.duration))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.85))
+
+                iconButton("captions.bubble", isActive: showSubtitles) { showSubtitles.toggle() }
+                    .popover(isPresented: $showSubtitles, arrowEdge: .bottom) {
+                        SubtitlesPanel().environmentObject(player)
                     }
+
+                volume
+
+                iconButton("arrow.up.left.and.arrow.down.right") {
+                    NSApp.keyWindow?.toggleFullScreen(nil)
                 }
-            )
-
-            Text(timeString(player.duration))
-                .font(.caption).monospacedDigit()
-                .foregroundStyle(.white)
-
-            Button { showSubtitles.toggle() } label: {
-                Image(systemName: "captions.bubble")
             }
-            .popover(isPresented: $showSubtitles, arrowEdge: .bottom) {
-                SubtitlesPanel().environmentObject(player)
-            }
-
-            HStack(spacing: 6) {
-                Image(systemName: "speaker.wave.2.fill").font(.caption)
-                Slider(value: Binding(get: { player.volume }, set: { player.setVolume($0) }),
-                       in: 0...130)
-                    .frame(width: 70)
-            }
-
-            Button { NSApp.keyWindow?.toggleFullScreen(nil) } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .glassEffect(.regular.interactive(), in: Capsule())
         }
-        .foregroundStyle(.white)
+        .padding(.horizontal, 22)
+        .padding(.bottom, 20)
+    }
+
+    private var scrubber: some View {
+        Slider(
+            value: Binding(get: { progress },
+                           set: { scrubFraction = $0; scrubbing = true }),
+            in: 0...1,
+            onEditingChanged: { editing in
+                if !editing { player.seek(toFraction: scrubFraction); scrubbing = false }
+            }
+        )
+        .controlSize(.small)
+        .tint(.white)
+        .frame(minWidth: 160)
+    }
+
+    private var volume: some View {
+        HStack(spacing: 6) {
+            Image(systemName: player.volume <= 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 16)
+            Slider(value: Binding(get: { player.volume }, set: { player.setVolume($0) }), in: 0...130)
+                .controlSize(.small)
+                .tint(.white)
+                .frame(width: 74)
+        }
+    }
+
+    private func iconButton(_ symbol: String, size: CGFloat = 15, isActive: Bool = false,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: size, weight: .medium))
+                .foregroundStyle(isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.white))
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
         .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 }

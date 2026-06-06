@@ -57,24 +57,24 @@ struct SubtitlesPanel: View {
                     player.selectSubtitle(id: track.id)
                 }
             }
-            Button {
-                player.openSubtitleFileDialog()
-            } label: {
-                Label("Add Subtitle File…", systemImage: "doc.badge.plus")
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-
             HStack(spacing: 8) {
+                Button {
+                    player.openSubtitleFileDialog()
+                } label: {
+                    Label("Add File…", systemImage: "doc.badge.plus")
+                }
                 Button {
                     player.syncCurrentSubtitle()
                 } label: {
-                    Label("Auto-sync to audio", systemImage: "wand.and.stars")
+                    Label("Auto-sync", systemImage: "wand.and.stars")
                 }
-                .buttonStyle(.plain)
                 .disabled(player.isSyncing)
                 if player.isSyncing { ProgressView().controlSize(.small) }
             }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .padding(.top, 2)
+
             if !player.subtitleSyncAvailable {
                 Text("Auto-sync needs alass: brew install alass")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -99,6 +99,8 @@ struct SubtitlesPanel: View {
                     } label: {
                         Label("Download English Subtitles", systemImage: "arrow.down.circle")
                     }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.small)
                     .disabled(player.isDownloadingSubs)
                     if player.isDownloadingSubs {
                         ProgressView().controlSize(.small)

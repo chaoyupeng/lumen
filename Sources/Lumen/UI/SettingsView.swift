@@ -25,6 +25,7 @@ struct SettingsView: View {
 
                 HStack(spacing: 8) {
                     Button(verifying ? "Verifying…" : "Save & Verify") { saveAndVerify() }
+                        .buttonStyle(.glassProminent)
                         .disabled(verifying || username.isEmpty || password.isEmpty)
                     if verifying { ProgressView().controlSize(.small) }
                     statusView

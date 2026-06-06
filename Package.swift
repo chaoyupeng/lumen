@@ -15,7 +15,9 @@ import PackageDescription
 //    and are the only embeddable HDR-capable render path libmpv exposes today.
 let package = Package(
     name: "Lumen",
-    platforms: [.macOS(.v14)],
+    // Floor is dictated by the bundled libmpv (built for macOS 26) and enables
+    // the Liquid Glass UI.
+    platforms: [.macOS("26.0")],
     targets: [
         .systemLibrary(
             name: "Cmpv",

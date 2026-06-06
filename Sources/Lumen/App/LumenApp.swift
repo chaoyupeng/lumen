@@ -11,6 +11,8 @@ struct LumenApp: App {
                 .environmentObject(player)
                 .onAppear { appDelegate.player = player }
         }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 960, height: 540)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open…") { player.openFileDialog() }
