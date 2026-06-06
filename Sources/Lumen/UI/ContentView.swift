@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var player: PlayerCore
+    @State private var controlsVisible = true
+    @State private var hideTask: DispatchWorkItem?
 
     var body: some View {
         ZStack {
@@ -20,7 +22,7 @@ struct ContentView: View {
                 }
             }
 
-            // HDR status badge (top-right). Only shown when EDR is engaged.
+            // HDR status badge (top-right).
             if player.fileLoaded, !player.colorInfo.isEmpty {
                 VStack {
                     HStack {
@@ -37,9 +39,39 @@ struct ContentView: View {
                     }
                     Spacer()
                 }
+                .opacity(controlsVisible ? 1 : 0)
+            }
+
+            // Transport controls (bottom), auto-hiding on mouse idle.
+            if player.fileLoaded {
+                VStack {
+                    Spacer()
+                    ControlsBar()
+                        .environmentObject(player)
+                }
+                .opacity(controlsVisible ? 1 : 0)
             }
         }
         .frame(minWidth: 640, minHeight: 360)
         .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.25), value: controlsVisible)
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                showControls()
+            case .ended:
+                break
+            }
+        }
+    }
+
+    private func showControls() {
+        controlsVisible = true
+        hideTask?.cancel()
+        let task = DispatchWorkItem {
+            if player.fileLoaded { controlsVisible = false }
+        }
+        hideTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
     }
 }

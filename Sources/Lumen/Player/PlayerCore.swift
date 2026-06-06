@@ -19,6 +19,13 @@ final class PlayerCore: ObservableObject {
     /// Short human-readable color description, e.g. "HDR10 · PQ · BT.2020".
     @Published var colorInfo = ""
 
+    @Published var timePos: Double = 0
+    @Published var duration: Double = 0
+    @Published var volume: Double = 100
+    @Published var subtitleTracks: [Track] = []
+    @Published var audioTracks: [Track] = []
+    @Published var subDelay: Double = 0
+
     /// True once the render context exists. Until then, opens are queued so
     /// mpv's vo=libmpv always has a render context when a file loads.
     private var rendererReady = false
@@ -56,6 +63,13 @@ final class PlayerCore: ObservableObject {
         // HDR detection inputs — drive EDR refresh when they change.
         mpv.observe("video-params/gamma", MPV_FORMAT_STRING)
         mpv.observe("video-params/primaries", MPV_FORMAT_STRING)
+        // Playback + track state for the controls UI.
+        mpv.observe("time-pos", MPV_FORMAT_DOUBLE)
+        mpv.observe("duration", MPV_FORMAT_DOUBLE)
+        mpv.observe("volume", MPV_FORMAT_DOUBLE)
+        mpv.observe("sub-delay", MPV_FORMAT_DOUBLE)
+        mpv.observe("track-list", MPV_FORMAT_NONE)
+        mpv.observe("sid", MPV_FORMAT_NONE)
 
         mpv.onEvent = { [weak self] ev in self?.handle(event: ev) }
 
@@ -95,6 +109,7 @@ final class PlayerCore: ObservableObject {
                 self?.fileLoaded = true
                 self?.refreshEdrMode()
                 self?.updateWindowSize()
+                self?.reloadTracks()
             }
 
         case MPV_EVENT_PROPERTY_CHANGE:
@@ -118,6 +133,28 @@ final class PlayerCore: ObservableObject {
                 Task { @MainActor [weak self] in self?.refreshEdrMode() }
             case "dwidth", "dheight":
                 Task { @MainActor [weak self] in self?.updateWindowSize() }
+            case "time-pos":
+                if p.format == MPV_FORMAT_DOUBLE, let d = p.data {
+                    let v = d.assumingMemoryBound(to: Double.self).pointee
+                    Task { @MainActor [weak self] in self?.timePos = v }
+                }
+            case "duration":
+                if p.format == MPV_FORMAT_DOUBLE, let d = p.data {
+                    let v = d.assumingMemoryBound(to: Double.self).pointee
+                    Task { @MainActor [weak self] in self?.duration = v }
+                }
+            case "volume":
+                if p.format == MPV_FORMAT_DOUBLE, let d = p.data {
+                    let v = d.assumingMemoryBound(to: Double.self).pointee
+                    Task { @MainActor [weak self] in self?.volume = v }
+                }
+            case "sub-delay":
+                if p.format == MPV_FORMAT_DOUBLE, let d = p.data {
+                    let v = d.assumingMemoryBound(to: Double.self).pointee
+                    Task { @MainActor [weak self] in self?.subDelay = v }
+                }
+            case "track-list", "sid":
+                Task { @MainActor [weak self] in self?.reloadTracks() }
             default:
                 break
             }
@@ -167,6 +204,74 @@ final class PlayerCore: ObservableObject {
         guard let dw = mpv.getInt("dwidth"), let dh = mpv.getInt("dheight"),
               dw > 0, dh > 0 else { return }
         videoView?.resizeWindow(toVideoWidth: Int(dw), height: Int(dh))
+    }
+
+    // MARK: - Playback controls
+
+    func seek(toFraction fraction: Double) {
+        guard duration > 0 else { return }
+        mpv.command(["seek", String(fraction * duration), "absolute"])
+    }
+
+    func setVolume(_ value: Double) {
+        mpv.setDouble("volume", value)
+    }
+
+    // MARK: - Subtitles
+
+    /// Re-read the track list and selection state from mpv.
+    func reloadTracks() {
+        let count = mpv.getInt("track-list/count") ?? 0
+        var subs: [Track] = []
+        var audios: [Track] = []
+        for i in 0..<count {
+            let type = mpv.getString("track-list/\(i)/type") ?? ""
+            let id = mpv.getInt("track-list/\(i)/id") ?? 0
+            let title = mpv.getString("track-list/\(i)/title")
+            let lang = mpv.getString("track-list/\(i)/lang")
+            let external = mpv.getFlag("track-list/\(i)/external") ?? false
+            let selected = mpv.getFlag("track-list/\(i)/selected") ?? false
+            let track = Track(id: id, type: type, title: title, lang: lang,
+                              external: external, selected: selected)
+            switch type {
+            case "sub": subs.append(track)
+            case "audio": audios.append(track)
+            default: break
+            }
+        }
+        subtitleTracks = subs
+        audioTracks = audios
+    }
+
+    func selectSubtitle(id: Int64?) {
+        if let id {
+            mpv.setInt("sid", id)
+        } else {
+            mpv.setString("sid", "no")
+        }
+        reloadTracks()
+    }
+
+    func addSubtitleFile(_ url: URL) {
+        mpv.command(["sub-add", url.path, "select"])
+        reloadTracks()
+    }
+
+    func setSubDelay(_ seconds: Double) {
+        mpv.setDouble("sub-delay", seconds)
+    }
+
+    func openSubtitleFileDialog() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        let subTypes = ["srt", "ass", "ssa", "vtt", "sub", "idx"]
+            .compactMap { UTType(filenameExtension: $0) }
+        if !subTypes.isEmpty { panel.allowedContentTypes = subTypes }
+        if panel.runModal() == .OK, let url = panel.url {
+            addSubtitleFile(url)
+        }
     }
 
     /// Enable or disable EDR/HDR output based on the current video's transfer
